@@ -1,21 +1,51 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Logo from '../components/Logo';
-import StatusBar from '../components/StatusBar';
-import RecordButton from '../components/RecordButton';
-import CommandButton from '../components/CommandButton';
-import { MirandaRights } from '../components/MirandaRights';
-import StatuteDatabase from '../components/StatuteDatabase';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { useSimulatedTTS } from '../hooks/useSimulatedTTS.tsx';
-import { handleCommand } from '../utils/commandProcessor';
-import { OFFLINE_DATA } from '../utils/offlineData';
-import { 
-  Mic, Shield, Map, BookOpen, MessageSquare, 
-  Settings, AlertOctagon, Vibrate, Phone,
-  Radio, MapPin, Volume2, BookText
-} from 'lucide-react';
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import QuickActionsBar from "@/components/dashboard/QuickActionsBar";
+import MapCard from "@/components/dashboard/MapCard";
+import ChatAssistant from "@/components/dashboard/ChatAssistant";
+import MirandaCard from "@/components/dashboard/MirandaCard";
+import StatuteCard from "@/components/dashboard/StatuteCard";
+import NotificationsCard from "@/components/dashboard/NotificationsCard";
+import ReportCard from "@/components/dashboard/ReportCard";
+import VoiceButton from "@/components/dashboard/VoiceButton";
 
 const Index = () => {
+  return (
+    <div className="min-h-screen flex flex-col p-4 gap-4">
+      <DashboardHeader />
+      <QuickActionsBar />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-grow">
+        {/* Left Column */}
+        <div className="flex flex-col gap-4">
+          <div className="h-[350px]">
+            <ChatAssistant />
+          </div>
+          <div className="flex-grow">
+            <ReportCard />
+          </div>
+        </div>
+        {/* Middle Column */}
+        <div className="flex flex-col gap-4 lg:col-span-1">
+          <div className="flex-grow">
+            <MapCard />
+          </div>
+          <div className="h-[300px]">
+            <NotificationsCard />
+          </div>
+        </div>
+        {/* Right Column */}
+        <div className="flex flex-col gap-4">
+          <div className="h-[350px]">
+            <MirandaCard />
+          </div>
+          <div className="flex-grow">
+            <StatuteCard />
+          </div>
+        </div>
+      </div>
+      <VoiceButton />
+    </div>
+  );
+}
   // State
   const [status, setStatus] = useState('LARK Ready');
   const [commandHistory, setCommandHistory] = useState<string[]>([]);

@@ -4,11 +4,6 @@ import { queryPinecone } from './pineconeClient';
 import statutesData from '../data/statutes.json';
 import {
   LLMClient,
-  OpenAIClient,
-  AnthropicClient,
-  GroqClient,
-  GeminiClient,
-  CohereClient,
   QuasarClient
 } from './llmClients';
 import { toolManager } from './ToolManager';
@@ -18,7 +13,7 @@ import { WorkflowManager, WorkflowEvent, SuggestedAction, WorkflowState } from '
 
 type InputType = 'voice' | 'text' | 'ui';
 
-interface OrchestratorInput {
+export interface OrchestratorInput {
   orgId: string;
   userId: string;
   type: InputType;
@@ -26,7 +21,7 @@ interface OrchestratorInput {
   metadata?: Record<string, any>;
 }
 
-interface OrchestratorResponse {
+export interface OrchestratorResponse {
   orgId: string;
   userId: string;
   type: 'text' | 'voice' | 'action';
@@ -49,29 +44,14 @@ interface MirandaLog {
 }
 
 class OrchestratorService {
-  private conversationHistories: Record<string, Message[]> = {};
   private listeners: Record<string, ResponseListener[]> = {};
-  private llmClient: LLMClient;
-  private anthropicClient: LLMClient;
-  private groqClient: LLMClient;
-  private geminiClient: LLMClient;
-  private cohereClient: LLMClient;
   private quasarClient: LLMClient;
 
   private statutes: Statute[] = [];
-  private mirandaLogs: Record<string, MirandaLog[]> = {};
 
   constructor() {
     logSystem('OrchestratorServiceInitialized', { message: 'Orchestrator initialized' });
     console.log('[Orchestrator] Initialized');
-    this.llmClient = new OpenAIClient(import.meta.env.VITE_OPENAI_API_KEY);
-
-    // Initialize other LLM clients with placeholder API keys
-    this.anthropicClient = new AnthropicClient(import.meta.env.VITE_ANTHROPIC_API_KEY || 'dummy');
-    this.groqClient = new GroqClient(import.meta.env.VITE_GROQ_API_KEY || 'dummy');
-    this.geminiClient = new GeminiClient(import.meta.env.VITE_GEMINI_API_KEY || 'dummy');
-    this.cohereClient = new CohereClient(import.meta.env.VITE_COHERE_API_KEY || 'dummy');
-
     this.quasarClient = new QuasarClient(import.meta.env.VITE_OPENROUTER_API_KEY || 'dummy');
 
     this.statutes = statutesData as Statute[];
@@ -110,16 +90,7 @@ class OrchestratorService {
     };
     WorkflowManager.handleEvent(input.orgId, input.userId, workflowEvent);
 
-    if (!this.conversationHistories[input.userId]) {
-      this.conversationHistories[input.userId] = [];
-    }
-
-    this.conversationHistories[input.userId].push({
-      role: input.type === 'ui' ? 'system' : 'user',
-      content: input.content,
-      timestamp: Date.now(),
-    });
-
+    // ContextManager.addMessage called earlier handles history
     this.processInput(input);
   }
 
@@ -192,7 +163,8 @@ class OrchestratorService {
   private async routeToLLM(input: OrchestratorInput, intent: string, action: any): Promise<string> {
     try {
       const retrievedSnippets = await this.retrieveKnowledge(input.content);
-      const history = this.conversationHistories[input.userId] || [];
+      const history = ContextManager.getContext(input.orgId, input.userId).conversationHistory || [];
+      // Ensure we only map relevant fields if ContextManager's history type differs slightly
       const mappedHistory = history.map(m => ({ role: m.role, content: m.content }));
 
       const selected = this.selectLLM(intent);
@@ -207,7 +179,7 @@ class OrchestratorService {
     }
   }
 
-  private selectLLM(intent: string): { name: string; client: LLMClient } {
+  private selectLLM(intent: string): { name: string; client: QuasarClient } {
     // Use Quasar Alpha via OpenRouter for all LLM responses
     return { name: 'QuasarAlpha', client: this.quasarClient };
   }
@@ -297,15 +269,8 @@ class OrchestratorService {
       : `[${language.toUpperCase()} TRANSLATION NOT AVAILABLE]: ${mirandaEnglish}`;
 
     // Log the Miranda delivery
-    if (!this.mirandaLogs[userId]) {
-      ContextManager.addAction(orgId, userId, 'MirandaRightsDelivered', { language, text: translated });
-      this.mirandaLogs[userId] = [];
-    }
-    this.mirandaLogs[userId].push({
-      timestamp: Date.now(),
-      language,
-      text: translated,
-    });
+    // Log action via ContextManager (already done before this block)
+    ContextManager.addAction(orgId, userId, 'MirandaRightsDelivered', { language, text: translated });
     logCompliance('MirandaRightsDelivered', { language, text: translated }, userId, undefined, undefined, orgId);
 
     const response: OrchestratorResponse = {
@@ -348,13 +313,7 @@ class OrchestratorService {
     }
   }
 
-  getHistory(userId: string): Message[] {
-    return this.conversationHistories[userId] || [];
-  }
-
-  getMirandaLogs(userId: string): MirandaLog[] {
-    return this.mirandaLogs[userId] || [];
-  }
+  // getHistory and getMirandaLogs removed, use ContextManager directly
 }
 
 export const orchestratorService = new OrchestratorService();
